@@ -2,16 +2,17 @@ const { MongoClient, ObjectId } = require('mongodb');
 const bluebird = require('bluebird');
 
 const accountId = ObjectId('524ac7b6019a607957000033');
-const graphName = 'gremlin';
+const graphName = 'prime-test1';
 
 const gremlin = require('gremlin');
 const __ = gremlin.process.statics;
-const { P } = gremlin.process;
+const { P, t } = gremlin.process;
 
 const DriverRemoteConnection = gremlin.driver.DriverRemoteConnection;
 const Graph = gremlin.structure.Graph;
 
-const dc = new DriverRemoteConnection(`ws://localhost:8182/${graphName}`);
+const dc = new DriverRemoteConnection('ws://localhost:8182/gremlin');
+
 const graph = new Graph();
 const g = graph.traversal().withRemote(dc);
 
@@ -29,15 +30,20 @@ const connect = async () => {
 	}
 }
 
+const clear = async () => {
+	await g.E().drop().iterate();
+	await g.V().drop().iterate();
+}
+
 const buildLocations = async () => {
 	const allLocations = await locationModel.find({ accountId }).toArray();
 	await bluebird.each(
 		allLocations,
 		async location => {
 			try {
-				await g.addV('location').property(__.id, location._id.toString()).property('name', location.name).next()
+				await g.addV('location').property(t.id, parseInt(location._id.toString(), 16) / 10000000000000).property('name', location.name).next()
 			} catch ({ message }) {
-				throw new Error(message);
+				console.log(message);
 			}
 		},
 	);
@@ -46,7 +52,13 @@ const buildLocations = async () => {
 		allLocations,
 		async location => {
 			if(location.parentLocationId) {
-				await g.addE('inside').from_(location._id.toString()).to(location.parentLocationId.toString()).iterate();
+				try {
+					const { value: child } = await g.V(parseInt(location._id.toString(), 16) / 10000000000000).next();
+					const { value: parent } = await g.V(parseInt(location.parentLocationId.toString(), 16) / 10000000000000).next();
+					await g.addE('inside').from_(child).to(parent).iterate();
+				} catch ({ message }) {
+					throw new Error(message);
+				}
 			}
 		}
 	)
@@ -54,14 +66,26 @@ const buildLocations = async () => {
 }
 
 const buildContent = async () => {
-	const recentContent = await contentModel.find({ accountId, archivedAt: null }).limit(100).sort({ _id: -1 });
+	const recentContent = await contentModel.find({ parentLocationId: { $ne: null }, accountId, archivedAt: null }).limit(100).sort({ _id: -1 }).toArray();
 
 	await bluebird.each(
 		recentContent,
 		async content => {
-			await g.addV('content').property(__.id, content._id.toString()).property('name', content.name).next();
+			let child;
+			try {
+				const { value } = await g.addV('content').property(t.id, parseInt(content._id.toString(), 16) / 10000000000000).property('name', content.name).next();
+				child = value;
+			} catch ({ message }) {
+				const { value } = await g.V(parseInt(content._id.toString(), 16) / 10000000000000).next();
+				child = value;
+			}
 			if(content.parentLocationId) {
-				await g.addE('inside').from_(content._id.toString()).to(content.parentLocationId.toString()).iterate();
+				try {
+					const { value: parent } = await g.V(parseInt(content.parentLocationId.toString(), 16) / 10000000000000).next();
+					await g.addE('inside').from_(child).to(parent).iterate();
+				} catch ({ message }) {
+					console.log(message);
+				}
 			}
 		}
 	)
@@ -79,6 +103,7 @@ const writeToFile = async () => {
 
 const run = async () => {
 	await connect();
+	await clear();
 	await buildLocations();
 	await buildContent();
 	await writeToFile();
