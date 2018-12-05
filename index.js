@@ -5,7 +5,7 @@ const P = gremlin.process.P;
 const DriverRemoteConnection = gremlin.driver.DriverRemoteConnection;
 const Graph = gremlin.structure.Graph;
 
-dc = new DriverRemoteConnection('ws://localhost:8182/gremlin');
+const dc = new DriverRemoteConnection('ws://localhost:8182/gremlin');
 
 const graph = new Graph();
 const g = graph.traversal().withRemote(dc);

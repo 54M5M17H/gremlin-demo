@@ -10,6 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "gremlin": "3.3.4"
+    "bluebird": "3.5.3",
+    "gremlin": "3.3.4",
+    "mongodb": "3.1.10"
   }
 }
