@@ -113,8 +113,13 @@ const writeToFile = async () => {
 	// console.log('formatted: ', formatted);
 
 	const edges = await g.E().toList();
-	const vertices = await g.V().properties().toList();
-	const nodes = vertices.map(v => ({ id: v.id, label: v.value }));
+	const vertices = await g.V().valueMap(true).toList();
+	const nodes = vertices.map(v => {
+		const entries = v.entries();
+		const id = entries.next().value[1];
+		const name = entries.next().value;
+		return { id: id, label: name[1][0] };
+	});
 	console.log('nodes: ', JSON.stringify(nodes));
 	console.log('\n\n\n\n\n');
 	const lines = edges.map(e => ({ from: e.outV, to: e.inV }));
