@@ -16,56 +16,47 @@ const clear = async () => {
 }
 
 const create = async () => {
-	try {
-		const { value: book } = await g.addV('content').property('name', 'book').next();
-		const { value: card } = await g.addV('content').property('name', 'card').next();
-		const { value: trolley1 } = await g.addV('location').property('name', 'trolley1').next();
-		const { value: area } = await g.addV('location').property('name', 'area').next();
-		const { value: warehouse } = await g.addV('location').property('name', 'warehouse').next();
-		
-		await g.addE('inside').from_(book).to(trolley1).iterate();
-		await g.addE('inside').from_(card).to(trolley1).iterate();
-		await g.addE('inside').from_(trolley1).to(area).iterate();
-		await g.addE('inside').from_(area).to(warehouse).iterate();
-
-	} catch (error) {
-		console.log('error: ', error);
-	}
+	const { value: book } = await g.addV('content').property('name', 'book').next();
+	const { value: card } = await g.addV('content').property('name', 'card').next();
+	const { value: trolley1 } = await g.addV('location').property('name', 'trolley1').next();
+	const { value: trolley2 } = await g.addV('location').property('name', 'trolley2').next();
+	const { value: area } = await g.addV('location').property('name', 'area').next();
+	const { value: warehouse } = await g.addV('location').property('name', 'warehouse').next();
+	
+	await g.addE('inside').from_(book).to(trolley1).iterate();
+	await g.addE('inside').from_(card).to(trolley2).iterate();
+	await g.addE('inside').from_(trolley1).to(area).iterate();
+	await g.addE('inside').from_(trolley2).to(area).iterate();
+	await g.addE('inside').from_(area).to(warehouse).iterate();
 }
 
 const whereIsTheBook = async () => {
 
-	try {
-		// here's a book
-		const { value: book } = await g.V().has('name', 'book').next();
-		const bookPath = await g.V(book.id)
-			.out('inside')
-			.out('inside')
-			.out('inside')
-			.path().by('name').next();
+	const parents = await g.V().hasLabel('content') // find all content
+		.out('inside').path().by('name').toList();  // traverse their "inside" edges
+													// parents: [
+														// ['book', 'trolley1'],
+														// ['card', 'trolley2']
+													// ]
 
-		// query by id -- but could chain ^^
-		const { value: recursivePath } = await g.V(book.id)
-			// .until(__.has('name', 'warehouse'))
-			.until(__.out('inside').count().is(P.lt(1)))
-			.repeat(__.out('inside'))
-			.path().by('name').next();
+	const { value: recursivePath } = await g.V().has('name', 'book') // find vertice with name book, then
+		.until(__.out('inside').count().is(P.lt(1))) 				 // until we have no more out-going edges labelled "inside"
+		.repeat(__.out('inside')) 									 // traverse the "inside" edges
+		.path().by('name').next(); 									 // and give us the path travelled by name
 
-		console.log('recursivePath: ', recursivePath);
-	} catch (error) {
-		console.log('error: ', error);
-	}
+																	 // recursive path: ["book", "trolley1", "area", "warehouse"]
 }
 
 const treeView = async () => {
-	const tree = await g.V().has('name', 'warehouse')
-		// .in_('inside').in_('inside').in_('inside').values('name')
-		.until(__.in_('inside').count().is(P.lt(1)))
-		.repeat(__.in_('inside'))
+	const tree = await g.V().has('name', 'warehouse') // find the vertice with name warehouse, then
+		.until(__.in_('inside').count().is(P.lt(1)))  // until we have no more incoming "inside" edges
+		.repeat(__.in_('inside'))					  // traverse the "inside edges"
 		.tree()
-		// .by('name')
+		.by('name')
 		.next();
-
+	
+		// tree: object tree, keyed by name
+	
 };
 
 const run = async () => {

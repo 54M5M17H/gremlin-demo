@@ -1,8 +1,7 @@
 const { MongoClient, ObjectId } = require('mongodb');
 const bluebird = require('bluebird');
 
-const accountId = ObjectId('524ac7b6019a607957000033');
-const graphName = 'prime-test1';
+const accountId = ObjectId('SET');
 
 const gremlin = require('gremlin');
 const __ = gremlin.process.statics;
